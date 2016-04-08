@@ -30,7 +30,41 @@
     #else
         #define MQ_LIBRARY_CLIENT "mqic32"
     #endif
+#elif defined(__hpux)
+    /*
+     * HP-UX
+     */
+
+    #define MQ_LOAD(LIBRARY)                                                             \
+        shl_t handle = shl_load(file, BIND_DEFERRED, 0);                                 \
+        if (!handle)                                                                     \
+        {                                                                                \
+            rb_raise(wmq_exception,                                                      \
+                     "WMQ::QueueManager#connect(). Failed to load MQ Library:%s, rc=%s", \
+                     LIBRARY,                                                            \
+                     strerror(errno));                                                   \
+        }
+
+    #define MQ_RELEASE shl_unload((shl_t)pqm->mq_lib_handle);
+
+    #define MQ_FUNCTION(FUNC, CAST)                                                  \
+        pqm->FUNC = NULL;                                                            \
+        shl_findsym(&handle,FUNC,TYPE_PROCEDURE,(void*)&(pqm->FUNC));                \
+        if(pqm->FUNC == NULL)                                                        \
+        {                                                                            \
+            shl_findsym(&handle,FUNC,TYPE_UNDEFINED,(void*)&(pqm->FUNC));            \
+            if(pqm->FUNC == NULL)                                                    \
+            {                                                                        \
+                rb_raise(wmq_exception, "Failed to find API "#FUNC" in MQ Library"); \
+            }                                                                        \
+        }
+
+    #define MQ_LIBRARY_SERVER "libmqm_r.sl"
+    #define MQ_LIBRARY_CLIENT "libmqic_r.sl"
+/*
 #elif defined(SOLARIS) || defined(__SVR4) || defined(__linux__) || defined(LINUX)
+*/
+#else
     /*
      * SOLARIS, LINUX
      */
@@ -72,37 +106,6 @@
         #define MQ_LIBRARY_SERVER "libmqm_r.so"
         #define MQ_LIBRARY_CLIENT "libmqic_r.so"
     #endif
-#elif defined(__hpux)
-    /*
-     * HP-UX
-     */
-
-    #define MQ_LOAD(LIBRARY)                                                             \
-        shl_t handle = shl_load(file, BIND_DEFERRED, 0);                                 \
-        if (!handle)                                                                     \
-        {                                                                                \
-            rb_raise(wmq_exception,                                                      \
-                     "WMQ::QueueManager#connect(). Failed to load MQ Library:%s, rc=%s", \
-                     LIBRARY,                                                            \
-                     strerror(errno));                                                   \
-        }
-
-    #define MQ_RELEASE shl_unload((shl_t)pqm->mq_lib_handle);
-
-    #define MQ_FUNCTION(FUNC, CAST)                                                  \
-        pqm->FUNC = NULL;                                                            \
-        shl_findsym(&handle,FUNC,TYPE_PROCEDURE,(void*)&(pqm->FUNC));                \
-        if(pqm->FUNC == NULL)                                                        \
-        {                                                                            \
-            shl_findsym(&handle,FUNC,TYPE_UNDEFINED,(void*)&(pqm->FUNC));            \
-            if(pqm->FUNC == NULL)                                                    \
-            {                                                                        \
-                rb_raise(wmq_exception, "Failed to find API "#FUNC" in MQ Library"); \
-            }                                                                        \
-        }
-
-    #define MQ_LIBRARY_SERVER "libmqm_r.sl"
-    #define MQ_LIBRARY_CLIENT "libmqic_r.sl"
 #endif
 
 void Queue_manager_mq_load(PQUEUE_MANAGER pqm)
